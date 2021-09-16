@@ -1,14 +1,14 @@
 <?php declare(strict_types = 1);
 class Plist {
-	private $doc;
-	private $root;
-	private function get_array(DOMElement $node, array $res = []) {
+	private DOMDocument $doc;
+	private DOMNode $root;
+	private function get_array(DOMElement $node, array $res = []): array {
 		for ($i = $node->firstChild; $i != null; $i = $i->nextSibling)
 			if ($i->nodeType == XML_ELEMENT_NODE)
 				$res[] = $this->get_data($i);
 		return $res;
 	}
-	private function get_dict(DOMElement $node, array $res = []) {
+	private function get_dict(DOMElement $node, array $res = []): array {
 		for ($i = $node->firstChild; $i != null; $i = $i->nextSibling)
 			if ($i->nodeName == "key") {
 				for ($j = $i->nextSibling; $j->nodeType == XML_TEXT_NODE; $j = $j->nextSibling);
@@ -16,8 +16,8 @@ class Plist {
 			}
 		return $res;
 	}
-	private function get_data(DOMElement $node) {
-		return match(strtolower($node->nodeName)) {
+	private function get_data(DOMElement $node): mixed {
+		return match (strtolower($node->nodeName)) {
 			'real' => floatval($node->textContent),
 			'integer' => intval($node->textContent),
 			'string', 'date' => $node->textContent, // date should be in ISO 8601
@@ -36,7 +36,7 @@ class Plist {
 		is_readable($file) && $this->doc->load($file) || throw new Exception("Bad file [$file]");
 		for ($this->root = $this->doc->documentElement->firstChild; $this->root->nodeType == XML_TEXT_NODE; $this->root = $this->root->nextSibling);
 	}
-	function __invoke(bool $xml = false) {
+	function __invoke(bool $xml = false): mixed {
 		return $xml ? $this->doc : $this->get_data($this->root);
 	}
 }
