@@ -2,8 +2,7 @@
 class RIPlist {
 	private const DRYRUN = false; // for internal debug purposes
 	private static function write(string $filepath, array $f, Imagick $src): bool {
-		$img = clone $src;
-		$img->cropImage($f['width'], $f['height'], $f['x'], $f['y']);
+		$img = $src->getImageRegion($f['width'], $f['height'], $f['x'], $f['y']);
 		$img->setImagePage(0, 0, 0, 0);
 		$img->stripImage(); // does not strip dates and some metadata
 		self::DRYRUN || $img->writeImage($filepath);

@@ -2,19 +2,23 @@
 class Plist {
 	private DOMDocument $doc;
 	private DOMNode $root;
-	private function get_array(DOMElement $node, array $res = []): array {
+	private function gen_array(DOMElement $node): Generator {
 		for ($i = $node->firstChild; $i != null; $i = $i->nextSibling)
 			if ($i->nodeType == XML_ELEMENT_NODE)
-				$res[] = $this->get_data($i);
-		return $res;
+				yield $this->get_data($i);
 	}
-	private function get_dict(DOMElement $node, array $res = []): array {
+	private function get_array(DOMElement $node): array {
+		return iterator_to_array($this->get_array($node));
+	}
+	private function gen_dict(DOMElement $node): Generator {
 		for ($i = $node->firstChild; $i != null; $i = $i->nextSibling)
 			if ($i->nodeName == "key") {
 				for ($j = $i->nextSibling; $j->nodeType == XML_TEXT_NODE; $j = $j->nextSibling);
-				$res[$i->textContent] = $this->get_data($j);
+				yield $i->textContent => $this->get_data($j);
 			}
-		return $res;
+	}
+	private function get_dict(DOMElement $node): array {
+		return iterator_to_array($this->gen_dict($node));
 	}
 	private function get_data(DOMElement $node): mixed {
 		return match (strtolower($node->nodeName)) {
@@ -24,8 +28,8 @@ class Plist {
 			'true' => true,
 			'false' => false,
 			'data' => base64_decode($node->textContent), // expect raw base64 in <string> as well
-			'array' => $this->get_array($node),
-			'dict' => $this->get_dict($node),
+			'array' => $this->gen_array($node), // Traversable
+			'dict' => $this->get_dict($node), // associative array
 			default => throw new Exception("Unknown tag [$node->nodeName]")
 		};
 	}
