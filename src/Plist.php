@@ -35,7 +35,7 @@ class Plist {
 	}
 
 	function __construct(string $file) {
-		$this->doc = new DOMDocument();
+		$this->doc = new DOMDocument;
 		$this->doc->preserveWhiteSpace = false;
 		is_readable($file) && $this->doc->load($file) || throw new Exception("Bad file [$file]");
 		for ($this->root = $this->doc->documentElement->firstChild; $this->root->nodeType == XML_TEXT_NODE; $this->root = $this->root->nextSibling);

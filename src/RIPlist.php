@@ -16,6 +16,14 @@ class RIPlist {
 		// logic for additional data such as $f['originalWidth'] should be here
 		return is_numeric($f['x']) && is_numeric($f['y']) && is_numeric($f['width']) && is_numeric($f['height']) && self::write($filepath, $f, $src);
 	}
+	private static function frame1(string $filepath, array $f, Imagick $src): bool {
+		// logic for additional data such as $f['offset'] or $f['sourceSize'] should be here
+		return !empty($f['frame']) && preg_match('/^{{(?<x>[0-9]*),(?<y>[0-9]*)},{(?<width>[0-9]*),(?<height>[0-9]*)}}$/', $f['frame'], $m) ? self::write($filepath, array_map('intval', $m), $src) : false;
+	}
+	private static function frame2(string $filepath, array $f, Imagick $src): bool {
+		// logic for additional data such as $f['sourceColorRect'] or $f['rotated'] should be here
+		return !empty($f['frame']) && preg_match('/^{{(?<x>[0-9]*),(?<y>[0-9]*)},{(?<width>[0-9]*),(?<height>[0-9]*)}}$/', $f['frame'], $m) ? self::write($filepath, array_map('intval', $m), $src) : false;
+	}
 	private static function frame3(string $filepath, array $f, Imagick $src): bool {
 		// logic for additional data such as $f['spriteOffset'] or $f['textureRotated'] should be here
 		return !empty($f['textureRect']) && preg_match('/^{{(?<x>[0-9]*),(?<y>[0-9]*)},{(?<width>[0-9]*),(?<height>[0-9]*)}}$/', $f['textureRect'], $m) ? self::write($filepath, array_map('intval', $m), $src) : false;
@@ -23,6 +31,8 @@ class RIPlist {
 	private static function frame(int $format, mixed ...$args): bool {
 		return match ($format) {
 			0 => self::frame0(...$args),
+			1 => self::frame1(...$args),
+			2 => self::frame2(...$args),
 			3 => self::frame3(...$args),
 			default => false
 		};
