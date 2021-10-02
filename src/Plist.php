@@ -34,7 +34,7 @@ class Plist {
 		};
 	}
 
-	function __construct(string $file) {
+	function __construct(private string $file) {
 		$this->doc = new DOMDocument;
 		$this->doc->preserveWhiteSpace = false;
 		is_readable($file) && $this->doc->load($file) || throw new Exception("Bad file [$file]");

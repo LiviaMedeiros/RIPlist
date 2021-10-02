@@ -1,8 +1,19 @@
 <?php declare(strict_types = 1);
 class RIPlist {
 	private const DRYRUN = false; // for internal debug purposes
-	private static function write(string $filepath, array $f, Imagick $src): bool {
-		$img = $src->getImageRegion($f['width'], $f['height'], $f['x'], $f['y']);
+	private static function get_rect(array $r): array {
+		return array_map(fn($key) => isset($r[$key]) && is_numeric($r[$key])
+			? intval($r[$key])
+			: throw new Exception("Bad value [$key]"),
+		['width', 'height', 'x', 'y']);
+	}
+	private static function parse_rect(string $r): array {
+		return preg_match('/^{{(?<x>[0-9]*),(?<y>[0-9]*)},{(?<width>[0-9]*),(?<height>[0-9]*)}}$/', $r, $m)
+			? $m
+			: throw new Exception("Bad rect string [$r]");
+	}
+	private static function write(string $filepath, array $r, Imagick $src): bool {
+		$img = $src->getImageRegion(...self::get_rect($r));
 		$img->setImagePage(0, 0, 0, 0);
 		$img->stripImage(); // does not strip dates and some metadata
 		self::DRYRUN || $img->writeImage($filepath);
@@ -10,23 +21,26 @@ class RIPlist {
 	}
 	private static function embed(string $filepath, string $data): bool {
 		// consider the file extension to be representative on initial source file only
-		return self::DRYRUN || boolval(file_put_contents($filepath, gzdecode(base64_decode(trim($data)))));
+		return self::DRYRUN || boolval(file_put_contents($filepath,
+			gzdecode(base64_decode(trim($data)
+			) ?: throw new Exception("Failed to decode embedded base64")
+			) ?: throw new Exception("Failed to decode embedded gzip")));
 	}
 	private static function frame0(string $filepath, array $f, Imagick $src): bool {
-		// logic for additional data such as $f['originalWidth'] should be here
-		return is_numeric($f['x']) && is_numeric($f['y']) && is_numeric($f['width']) && is_numeric($f['height']) && self::write($filepath, $f, $src);
+		// logic for additional data such as $f['originalWidth'] or $f['offsetX'] should be here
+		return self::write($filepath, $f, $src);
 	}
 	private static function frame1(string $filepath, array $f, Imagick $src): bool {
 		// logic for additional data such as $f['offset'] or $f['sourceSize'] should be here
-		return !empty($f['frame']) && preg_match('/^{{(?<x>[0-9]*),(?<y>[0-9]*)},{(?<width>[0-9]*),(?<height>[0-9]*)}}$/', $f['frame'], $m) ? self::write($filepath, array_map('intval', $m), $src) : false;
+		return !empty($f['frame']) && self::write($filepath, self::parse_rect($f['frame']), $src);
 	}
 	private static function frame2(string $filepath, array $f, Imagick $src): bool {
 		// logic for additional data such as $f['sourceColorRect'] or $f['rotated'] should be here
-		return !empty($f['frame']) && preg_match('/^{{(?<x>[0-9]*),(?<y>[0-9]*)},{(?<width>[0-9]*),(?<height>[0-9]*)}}$/', $f['frame'], $m) ? self::write($filepath, array_map('intval', $m), $src) : false;
+		return !empty($f['frame']) && self::write($filepath, self::parse_rect($f['frame']), $src);
 	}
 	private static function frame3(string $filepath, array $f, Imagick $src): bool {
 		// logic for additional data such as $f['spriteOffset'] or $f['textureRotated'] should be here
-		return !empty($f['textureRect']) && preg_match('/^{{(?<x>[0-9]*),(?<y>[0-9]*)},{(?<width>[0-9]*),(?<height>[0-9]*)}}$/', $f['textureRect'], $m) ? self::write($filepath, array_map('intval', $m), $src) : false;
+		return !empty($f['textureRect']) && self::write($filepath, self::parse_rect($f['textureRect']), $src);
 	}
 	private static function frame(int $format, mixed ...$args): bool {
 		return match ($format) {
