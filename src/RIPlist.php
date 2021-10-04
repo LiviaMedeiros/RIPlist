@@ -3,6 +3,7 @@ class RIPlist {
 	private const DRYRUN = false; // for internal debug purposes
 
 	public static bool $raw = true;
+	public static bool $normalize = false;
 
 	private static function get_rect(array $r): array {
 		return array_map(fn($key) => isset($r[$key]) && is_numeric($r[$key])
@@ -24,12 +25,21 @@ class RIPlist {
 		self::DRYRUN || $img->writeImage($filepath);
 		return $img->clear();
 	}
-	private static function embed(string $filepath, string $data): bool {
-		// consider the file extension to be representative on initial source file only
-		return self::DRYRUN || boolval(file_put_contents($filepath,
-			gzdecode(base64_decode(trim($data)
+	private static function get_embedfile(string $data): string {
+		return gzdecode(base64_decode(trim($data)
 			) ?: throw new Exception("Failed to decode embedded base64")
-			) ?: throw new Exception("Failed to decode embedded gzip")));
+			) ?: throw new Exception("Failed to decode embedded gzip");
+	}
+	private static function try_embed(array $p): string|false {
+		return !empty($p['textureFileName']) && !empty($p['textureImageData']) ? self::get_embedfile($p['textureImageData']) : false;
+	}
+	private static function embed(string $filepath, array $f, string $filebody): bool {
+		if (!self::$normalize) // content of source file may mismatch its file extension
+			return self::DRYRUN || boolval(file_put_contents($filepath, $filebody));
+		$img = new Imagick;
+		$img->readImageBlob($filebody, $f['textureFileName']); // this may fail horribly
+		if (!self::$raw) {} // logic for additional data such as $f['angle'] or $f['blendFuncDestination'] should be here
+		return self::write($filepath, $img);
 	}
 	private static function frame0(array $f, Imagick $src): Imagick {
 		$img = self::get_part($f, $src);
@@ -72,8 +82,8 @@ class RIPlist {
 	}
 
 	public static function rip(array $plist, string $dir_src = '.', ?string $dir_out = null): bool {
-		if (!empty($plist['textureFileName']) && !empty($plist['textureImageData']))
-			return self::embed($dir_src.'/'.$plist['textureFileName'], $plist['textureImageData']);
+		if ($embed = self::try_embed($plist))
+			return self::embed($dir_src.'/'.$plist['textureFileName'], $plist, $embed);
 
 		(empty($plist['metadata']) || empty($plist['metadata']['textureFileName']) || !is_numeric($plist['metadata']['format']) || !is_array($plist['frames'])) && throw new Exception("Bad plist data");
 		$file_src = $dir_src.'/'.$plist['metadata']['textureFileName'];
